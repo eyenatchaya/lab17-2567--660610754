@@ -27,14 +27,15 @@ export const GET = async (request:NextRequest) => {
 
   //check if user provide one of 'studentId' or 'courseNo'
   //User must not provide both values, and must not provide nothing
-
-  // return NextResponse.json(
-  //   {
-  //     ok: false,
-  //     message: "Please provide either studentId or courseNo and not both!",
-  //   },
-  //   { status: 400 }
-  // );
+  if( (!studentId && !courseNo) || (studentId && courseNo)){
+  return NextResponse.json(
+    {
+      ok: false,
+      message: "Please provide either studentId or courseNo and not both!",
+    },
+    { status: 400 }
+  );
+  }
 
   //get all courses enrolled by a student
   if (studentId) {
@@ -48,6 +49,14 @@ export const GET = async (request:NextRequest) => {
     const courses = [];
     for (const courseNo of courseNoList) {
       const course = DB.courses.find((x) => x.courseNo === courseNo);
+
+      if(!course) return NextResponse.json({
+        ok: false,
+        message: `Oops, something went wrong`,
+      },
+      { status: 500 }
+      );
+
       courses.push(course);
     }
 
@@ -60,10 +69,25 @@ export const GET = async (request:NextRequest) => {
     const studentIdList = [];
     for (const enroll of DB.enrollments) {
       //your code here
+      if (enroll.courseNo === courseNo) {
+        studentIdList.push(enroll.studentId);
+      }
     }
 
     const students:Student[] = [];
     //your code here
+    for (const studentId of studentIdList) {
+      const student = DB.students.find((x) => x.studentId === studentId);
+
+      if(!student) return NextResponse.json({
+        ok: false,
+        message: `Oops, something went wrong`,
+      },
+      { status: 500 }
+      );
+
+      students.push(student);
+    }
 
     return NextResponse.json({
       ok: true,
@@ -141,16 +165,53 @@ export const DELETE = async (request:NextRequest) => {
   const { studentId, courseNo } = body;
 
   //check if studentId and courseNo exist on enrollment
+  const found_student = DB.students.find((s) => s.studentId === studentId);
+  const found_course = DB.courses.find((c) => c.courseNo === courseNo);
 
-  // return NextResponse.json(
-  //   {
-  //     ok: false,
-  //     message: "Enrollment does not exist",
-  //   },
-  //   { status: 404 }
-  // );
+  if (!found_student || !found_course){
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "Student or Course is not found",
+      },
+      { status: 400 }
+    );
+  }
+
+  const found_enroll = DB.enrollments.find(
+    (enroll) => enroll.courseNo === courseNo && enroll.studentId === studentId
+  );
+  if (!found_enroll) {
+  return NextResponse.json(
+    {
+      ok: false,
+      message: "Enrollment does not exist",
+    },
+    { status: 404 }
+  );
+}
 
   //perform deletion by using splice or array filter
+  //filter
+  DB.enrollments = DB.enrollments.filter((enroll) => (enroll.studentId !== body.studentId) || (enroll.courseNo !== body.courseNo));
+  
+  //splice find -> findIndex
+  /*const found_enroll_index = DB.enrollments.findIndex(
+    (enroll) => enroll.courseNo === courseNo && enroll.studentId === studentId
+  );
+
+  if (found_enroll_index === -1) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "Enrollment does not exist",
+      },
+      { status: 404 }
+    );
+  }
+  
+  DB.enrollments.splice(found_enroll_index, 1);
+  */
 
   //if code reach here it means deletion is complete
   return NextResponse.json({
@@ -158,4 +219,3 @@ export const DELETE = async (request:NextRequest) => {
     message: "Enrollment has been deleted",
   });
 };
-
